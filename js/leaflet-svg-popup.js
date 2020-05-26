@@ -1,8 +1,3 @@
-/*
- leaflet.responsive.popup 0.6.4
- (c) 2019 https://github.com/yafred
-*/
-
 L.SVGPopup = L.Popup.extend({
 
     options: {
@@ -18,26 +13,26 @@ L.SVGPopup = L.Popup.extend({
 
     _initLayout: function () {
         var prefix = 'leaflet-popup',
-            container = this._container = DomUtil.create('div',
+            container = this._container = L.DomUtil.create('div',
                 prefix + ' ' + (this.options.className || '') +
                 ' leaflet-zoom-animated');
 
-        var wrapper = this._wrapper = DomUtil.create('div', prefix + '-content-wrapper', container);
-        this._contentNode = DomUtil.create('div', prefix + '-content', wrapper);
+        var wrapper = this._wrapper = L.DomUtil.create('div', prefix + '-content-wrapper', container);
+        this._contentNode = L.DomUtil.create('div', prefix + '-content', wrapper);
 
-        DomEvent.disableClickPropagation(wrapper);
-        DomEvent.disableScrollPropagation(this._contentNode);
-        DomEvent.on(wrapper, 'contextmenu', DomEvent.stopPropagation);
+        L.DomEvent.disableClickPropagation(wrapper);
+        L.DomEvent.disableScrollPropagation(this._contentNode);
+        L.DomEvent.on(wrapper, 'contextmenu', L.DomEvent.stopPropagation);
 
-        this._tipContainer = DomUtil.create('div', prefix + '-tip-container', container);
-        this._tip = DomUtil.create('div', prefix + '-tip', this._tipContainer);
+        this._tipContainer = L.DomUtil.create('div', prefix + '-tip-container', container);
+        this._tip = L.DomUtil.create('div', prefix + '-tip', this._tipContainer);
 
         if (this.options.closeButton) {
-            var closeButton = this._closeButton = DomUtil.create('a', prefix + '-close-button', container);
+            var closeButton = this._closeButton = L.DomUtil.create('a', prefix + '-close-button', container);
             closeButton.href = '#close';
             closeButton.innerHTML = '&#215;';
 
-            DomEvent.on(closeButton, 'click', this._onCloseButtonClick, this);
+            L.DomEvent.on(closeButton, 'click', this._onCloseButtonClick, this);
         }
     },
 
@@ -65,6 +60,7 @@ L.Layer.include({
                 this._popup = new L.SVGPopup(options, this);
             }
             this._popup.setContent(content);
+            // this._popup.setContent("<p>Poop</p>");
         }
 
         if (!this._popupHandlersAdded) {
