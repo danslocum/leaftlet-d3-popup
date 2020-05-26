@@ -3,268 +3,273 @@
  (c) 2019 https://github.com/yafred
 */
 
-L.ResponsivePopup = L.Popup.extend({
+L.SVGPopup = L.Popup.extend({
 
     options: {
-        hasTip: true
-        /*
-         * Inherited from L.Popup
-         *
-         * - offset
-         *
-         * - autoPanPadding
-         * - autoPanPaddingTopLeft
-         * - autoPanPaddingBottomRight
-         */
+        api: "none",
+        json: "none",
+        csv: "none",
+        x: "none",
+        y: "none",
+        group: "none",
+        color: "none"
+        // https://leafletjs.com/reference-1.6.0.html#popup
     },
 
-    /**
-     * Overrides https://github.com/Leaflet/Leaflet/blob/v1.3.4/src/layer/Popup.js#L176
-     * This is to add hasTip option
-     */
     _initLayout: function () {
-
         var prefix = 'leaflet-popup',
-            container = this._container = L.DomUtil.create('div',
+            container = this._container = DomUtil.create('div',
                 prefix + ' ' + (this.options.className || '') +
                 ' leaflet-zoom-animated');
 
-        var wrapper = this._wrapper = L.DomUtil.create('div', prefix + '-content-wrapper', container);
-        this._contentNode = L.DomUtil.create('div', prefix + '-content', wrapper);
+        var wrapper = this._wrapper = DomUtil.create('div', prefix + '-content-wrapper', container);
+        this._contentNode = DomUtil.create('div', prefix + '-content', wrapper);
 
-        L.DomEvent.disableClickPropagation(wrapper);
-        L.DomEvent.disableScrollPropagation(this._contentNode);
-        L.DomEvent.on(wrapper, 'contextmenu', L.DomEvent.stopPropagation);
+        DomEvent.disableClickPropagation(wrapper);
+        DomEvent.disableScrollPropagation(this._contentNode);
+        DomEvent.on(wrapper, 'contextmenu', DomEvent.stopPropagation);
 
-        this._tipContainer = L.DomUtil.create('div', prefix + '-tip-container', container);
-        if(!this.options.hasTip) {
-            this._tipContainer.style.visibility = 'hidden';
-        }
-        this._tip = L.DomUtil.create('div', prefix + '-tip', this._tipContainer);
+        this._tipContainer = DomUtil.create('div', prefix + '-tip-container', container);
+        this._tip = DomUtil.create('div', prefix + '-tip', this._tipContainer);
 
         if (this.options.closeButton) {
-            var closeButton = this._closeButton = L.DomUtil.create('a', prefix + '-close-button', container);
+            var closeButton = this._closeButton = DomUtil.create('a', prefix + '-close-button', container);
             closeButton.href = '#close';
             closeButton.innerHTML = '&#215;';
 
-            L.DomEvent.on(closeButton, 'click', this._onCloseButtonClick, this);
+            DomEvent.on(closeButton, 'click', this._onCloseButtonClick, this);
         }
     },
 
-
-
-    /**
-     * Overrides https://github.com/Leaflet/Leaflet/blob/v1.3.4/src/layer/DivOverlay.js#L178
-     */
-    _updatePosition: function () {
-
-        if (!this._map) { return; }
-
-        var pos = this._map.latLngToLayerPoint(this._latlng),
-            basePoint = this._map.layerPointToContainerPoint(pos),
-            containerWidth = this._container.offsetWidth,
-            containerHeight = this._container.offsetHeight,
-            padding = L.point(this.options.autoPanPadding),
-            paddingTL = L.point(this.options.autoPanPaddingTopLeft || padding),
-            paddingBR = L.point(this.options.autoPanPaddingBottomRight || padding),
-            mapSize = this._map.getSize(),
-            anchor = this._getAnchor(),  // popup anchor
-            offset = L.point(this.options.offset); // offset relative to anchor (option from L.DivOverlay. We only use absolute values).
-
-        // Leaflet default dimensions (should not be hard coded in the future)
-        var tipHeight = 11; //px
-        var tipWidth = 22; //px
-        var containerRadius = 12; //px
-
-        // Tweak offset to include tip dimensions
-        var offsetX = Math.abs(offset.x);
-        var offsetY = Math.abs(offset.y);
-        if(this.options.hasTip) {
-            offsetX += tipHeight;
-            offsetY += tipHeight;
-
-            // clear CSS
-            L.DomUtil.removeClass(this._container, 'leaflet-resp-popup-north');
-            L.DomUtil.removeClass(this._container, 'leaflet-resp-popup-south');
-            L.DomUtil.removeClass(this._container, 'leaflet-resp-popup-east');
-            L.DomUtil.removeClass(this._container, 'leaflet-resp-popup-west');
-            L.DomUtil.removeClass(this._container, 'leaflet-resp-popup-north-east');
-            L.DomUtil.removeClass(this._container, 'leaflet-resp-popup-north-west');
-            L.DomUtil.removeClass(this._container, 'leaflet-resp-popup-south-east');
-            L.DomUtil.removeClass(this._container, 'leaflet-resp-popup-south-west');
-            L.DomUtil.removeClass(this._container, 'leaflet-resp-popup-east-north');
-            L.DomUtil.removeClass(this._container, 'leaflet-resp-popup-east-south');
-            L.DomUtil.removeClass(this._container, 'leaflet-resp-popup-west-north');
-            L.DomUtil.removeClass(this._container, 'leaflet-resp-popup-west-south');
-            // this._container.style.display = 'initial'; // this does not work
-        }
-
-        // Where can we fit the popup ?
-        var canGoTop = true,
-            canGoBottom = true,
-            canGoLeft = true,
-            canGoRight = true,
-            containerPos = false;
-
-        if(basePoint.y + anchor.y - offsetY - containerHeight - Math.abs(paddingTL.y) < 0) {
-            canGoTop = false;
-        }
-        if(basePoint.y + anchor.y + offsetY + containerHeight + Math.abs(paddingBR.y) > mapSize.y) {
-            canGoBottom = false;
-        }
-        if(basePoint.x + anchor.x - offsetX - containerWidth - Math.abs(paddingTL.x) < 0) {
-            canGoLeft = false;
-        }
-        if(basePoint.x + anchor.x + offsetX + containerWidth + Math.abs(paddingBR.x) > mapSize.x) {
-            canGoRight = false;
-        }
-
-        // manage overflows
-        var subtractX = containerWidth / 2 - anchor.x,
-            subtractY = containerHeight / 2 - anchor.y;
-
-        if(canGoTop || canGoBottom) {
-            var containerLeft = basePoint.x + anchor.x - (containerWidth / 2);
-            var containerRight = basePoint.x + anchor.x + (containerWidth / 2);
-            if(containerLeft < Math.abs(paddingTL.x)) { // left overflow
-                subtractX = containerWidth / 2 - anchor.x - Math.abs(paddingTL.x) + containerLeft;
-            }
-            if(containerRight > mapSize.x - Math.abs(paddingBR.x)) { // right overflow
-                subtractX = containerWidth / 2 - anchor.x + containerRight - mapSize.x + Math.abs(paddingBR.x);
-            }
-        }
-        if(canGoLeft || canGoRight) {
-            var containerTop = basePoint.y + anchor.y - (containerHeight / 2);
-            var containerBottom = basePoint.y + anchor.y + (containerHeight / 2);
-            if(containerTop < Math.abs(paddingTL.y)) { // top overflow
-                subtractY = containerHeight / 2 - anchor.y - Math.abs(paddingTL.y) + containerTop;
-            }
-            if(containerBottom > mapSize.y - Math.abs(paddingBR.y)) { // bottom overflow
-                subtractY = containerHeight / 2 - anchor.y + containerBottom - mapSize.y + Math.abs(paddingBR.y);
-            }
-        }
-
-        // position the popup (order of preference is: top, left, bottom, right, centerOnMap)
-        if(canGoTop) {
-            containerPos = pos.subtract(L.point(subtractX, -anchor.y + containerHeight + offsetY, true));
-            if(this.options.hasTip) {
-                if(basePoint.x + anchor.x < paddingTL.x + containerRadius + tipWidth/2) {
-                    containerPos.x = pos.x + anchor.x;
-                    L.DomUtil.addClass(this._container, 'leaflet-resp-popup-north-east');
-                    this._tipContainer.style.top = containerHeight + 'px';
-                    this._tipContainer.style.left = '0px';
-                }
-                else if(basePoint.x + anchor.x > mapSize.x - paddingBR.x - containerRadius - tipWidth/2) {
-                    containerPos.x = pos.x + anchor.x - containerWidth;
-                    L.DomUtil.addClass(this._container, 'leaflet-resp-popup-north-west');
-                    this._tipContainer.style.top = containerHeight + 'px';
-                    this._tipContainer.style.left = containerWidth + 'px';
-                }
-                else {
-                    L.DomUtil.addClass(this._container, 'leaflet-resp-popup-north');
-                    this._tipContainer.style.top = containerHeight + 'px';
-                    this._tipContainer.style.left = (pos.x + anchor.x - containerPos.x) + 'px';
-                }
-            }
-        }
-        else if(canGoLeft) {
-            containerPos = pos.subtract(L.point(-anchor.x + containerWidth + offsetX, subtractY, true));
-            if(this.options.hasTip) {
-                if(basePoint.y + anchor.y < paddingTL.y + containerRadius + tipWidth/2) {
-                    containerPos.y = pos.y + anchor.y;
-                    L.DomUtil.addClass(this._container, 'leaflet-resp-popup-west-south');
-                    this._tipContainer.style.top = '0px';
-                    this._tipContainer.style.left = containerWidth + 'px';
-                }
-                else if(basePoint.y + anchor.y > mapSize.y - paddingBR.y - containerRadius - tipWidth/2) {
-                    containerPos.y = pos.y + anchor.y - containerHeight;
-                    L.DomUtil.addClass(this._container, 'leaflet-resp-popup-west-north');
-                    this._tipContainer.style.top = containerHeight + 'px';
-                    this._tipContainer.style.left = containerWidth + 'px';
-                }
-                else {
-                    L.DomUtil.addClass(this._container, 'leaflet-resp-popup-west');
-                    this._tipContainer.style.top = (pos.y + anchor.y - containerPos.y) + 'px';
-                    this._tipContainer.style.left = containerWidth + 'px';
-                }
-            }
-        }
-        else if(canGoBottom) {
-            containerPos = pos.subtract(L.point(subtractX, -anchor.y - offsetY, true));
-            if(this.options.hasTip) {
-                if(basePoint.x + anchor.x < paddingTL.x + containerRadius + tipWidth/2) {
-                    containerPos.x = pos.x + anchor.x;
-                    L.DomUtil.addClass(this._container, 'leaflet-resp-popup-south-east');
-                    this._tipContainer.style.top = '0px';
-                    this._tipContainer.style.left = '0px';
-                }
-                else if(basePoint.x + anchor.x > mapSize.x - paddingBR.x - containerRadius - tipWidth/2) {
-                    containerPos.x = pos.x + anchor.x - containerWidth;
-                    L.DomUtil.addClass(this._container, 'leaflet-resp-popup-south-west');
-                    this._tipContainer.style.top = '0px';
-                    this._tipContainer.style.left = containerWidth + 'px';
-                }
-                else {
-                    L.DomUtil.addClass(this._container, 'leaflet-resp-popup-south');
-                    this._tipContainer.style.top = '0px';
-                    this._tipContainer.style.left = (pos.x + anchor.x - containerPos.x) + 'px';
-                }
-            }
-        }
-        else if(canGoRight) {
-            containerPos = pos.subtract(L.point(-anchor.x - offsetX, subtractY, true));
-            if(this.options.hasTip) {
-                if(basePoint.y + anchor.y < paddingTL.y + containerRadius + tipWidth/2) {
-                    containerPos.y = pos.y + anchor.y;
-                    L.DomUtil.addClass(this._container, 'leaflet-resp-popup-east-south');
-                    this._tipContainer.style.top = '0px';
-                    this._tipContainer.style.left = '0px';
-                }
-                else if(basePoint.y + anchor.y > mapSize.y - paddingBR.y - containerRadius - tipWidth/2) {
-                    containerPos.y = pos.y + anchor.y - containerHeight;
-                    L.DomUtil.addClass(this._container, 'leaflet-resp-popup-east-north');
-                    this._tipContainer.style.top = containerHeight + 'px';
-                    this._tipContainer.style.left = '0px';
-                }
-                else {
-                    L.DomUtil.addClass(this._container, 'leaflet-resp-popup-east');
-                    this._tipContainer.style.top = (pos.y + anchor.y - containerPos.y) + 'px';
-                    this._tipContainer.style.left = '0px';
-                }
-            }
-        }
-        else {
-            var pos = this._map.latLngToLayerPoint(this._map.getCenter());
-            containerPos = pos.subtract(L.point(containerWidth / 2, containerHeight / 2));
-            if(this.options.hasTip) {
-                // this._tipContainer.style.display = 'none'; // this does not work
-            }
-        }
-
-
-        // if point is not visible, just hide the popup
-        if(basePoint.x < 0 || basePoint.y < 0 || basePoint.x > mapSize.x || basePoint.y > mapSize.y) {
-            // this._container.style.display = 'none';  // this does not work
-        }
-
-        // if container is too big, just hide the popup
-        if(containerWidth - Math.abs(paddingTL.x) - Math.abs(paddingBR.x) > mapSize.x || containerHeight - Math.abs(paddingTL.y) - Math.abs(paddingBR.y) > mapSize.y) {
-            // this._container.style.display = 'none'; // this does not work
-        }
-
-        L.DomUtil.setPosition(this._container, containerPos);
-    }
-
 });
 
-
-//Instantiates a `ResponsivePopup` object given an optional `options` object that describes its appearance and location and an optional `source` object that is used to tag the popup with a reference to the Layer to which it refers.
-L.responsivePopup = function (options, source) {
-    return new L.ResponsivePopup(options, source);
+L.svgPopup = function (options, source) {
+    return new L.SVGPopup(options, source);
 };
 
-//Adds Angular support
 if( typeof exports === 'object' && typeof module !== 'undefined') {
-    exports.responsivePopup = L.responsivePopup;
-    exports.ResponsivePopup = L.ResponsivePopup;
+    exports.svgPopup = L.svgPopup;
+    exports.SVGPopup = L.SVGPopup;
 }
+
+// @section Popup methods
+L.Layer.include({
+    // create new @method bindSVGPopup
+    bindSVGPopup: function (content, options) {
+        if (content instanceof L.SVGPopup) {
+            L.setOptions(content, options);
+            this._popup = content;
+            content._source = this;
+        } else {
+            if (!this._popup || options) {
+                this._popup = new L.SVGPopup(options, this);
+            }
+            this._popup.setContent(content);
+        }
+
+        if (!this._popupHandlersAdded) {
+            this.on({
+                click: this._openPopup,
+                remove: this.closePopup,
+                move: this._movePopup
+            });
+            this._popupHandlersAdded = true;
+        }
+
+        return this;
+    },
+
+    // @method bindPopup(content: String|HTMLElement|Function|Popup, options?: Popup options): this
+    // Binds a popup to the layer with the passed `content` and sets up the
+    // neccessary event listeners. If a `Function` is passed it will receive
+    // the layer as the first argument and should return a `String` or `HTMLElement`.
+    bindPopup: function (content, options) {
+
+        if (content instanceof L.Popup) {
+            L.setOptions(content, options);
+            this._popup = content;
+            content._source = this;
+        } else {
+            if (!this._popup || options) {
+                this._popup = new L.Popup(options, this);
+            }
+            this._popup.setContent(content);
+        }
+
+        if (!this._popupHandlersAdded) {
+            this.on({
+                click: this._openPopup,
+                remove: this.closePopup,
+                move: this._movePopup
+            });
+            this._popupHandlersAdded = true;
+        }
+
+        return this;
+    },
+
+    // @method unbindPopup(): this
+    // Removes the popup previously bound with `bindPopup`.
+    unbindPopup: function () {
+        if (this._popup) {
+            this.off({
+                click: this._openPopup,
+                remove: this.closePopup,
+                move: this._movePopup
+            });
+            this._popupHandlersAdded = false;
+            this._popup = null;
+        }
+        return this;
+    },
+
+    // @method openPopup(latlng?: LatLng): this
+    // Opens the bound popup at the specificed `latlng` or at the default popup anchor if no `latlng` is passed.
+    openPopup: function (layer, latlng) {
+        if (!(layer instanceof L.Layer)) {
+            latlng = layer;
+            layer = this;
+        }
+
+        if (layer instanceof L.FeatureGroup) {
+            for (var id in this._layers) {
+                layer = this._layers[id];
+                break;
+            }
+        }
+
+        if (!latlng) {
+            latlng = layer.getCenter ? layer.getCenter() : layer.getLatLng();
+        }
+
+        if (this._popup && this._map) {
+            // set popup source to this layer
+            this._popup._source = layer;
+
+            // update the popup (content, layout, ect...)
+            this._popup.update();
+
+            // open the popup on the map
+            this._map.openPopup(this._popup, latlng);
+        }
+
+        return this;
+    },
+
+    // @method closePopup(): this
+    // Closes the popup bound to this layer if it is open.
+    closePopup: function () {
+        if (this._popup) {
+            this._popup._close();
+        }
+        return this;
+    },
+
+    // @method togglePopup(): this
+    // Opens or closes the popup bound to this layer depending on its current state.
+    togglePopup: function (target) {
+        if (this._popup) {
+            if (this._popup._map) {
+                this.closePopup();
+            } else {
+                this.openPopup(target);
+            }
+        }
+        return this;
+    },
+
+    // @method isPopupOpen(): boolean
+    // Returns `true` if the popup bound to this layer is currently open.
+    isPopupOpen: function () {
+        return this._popup.isOpen();
+    },
+
+    // @method setPopupContent(content: String|HTMLElement|Popup): this
+    // Sets the content of the popup bound to this layer.
+    setPopupContent: function (content) {
+        if (this._popup) {
+            this._popup.setContent(content);
+        }
+        return this;
+    },
+
+    // @method getPopup(): Popup
+    // Returns the popup bound to this layer.
+    getPopup: function () {
+        return this._popup;
+    },
+
+    _openPopup: function (e) {
+        var layer = e.layer || e.target;
+
+        if (!this._popup) {
+            return;
+        }
+
+        if (!this._map) {
+            return;
+        }
+
+        // prevent map click
+        L.DomEvent.stop(e);
+
+        // if this inherits from Path its a vector and we can just
+        // open the popup at the new location
+        if (layer instanceof L.Path) {
+            this.openPopup(e.layer || e.target, e.latlng);
+            return;
+        }
+
+        // otherwise treat it like a marker and figure out
+        // if we should toggle it open/closed
+        if (this._map.hasLayer(this._popup) && this._popup._source === layer) {
+            this.closePopup();
+        } else {
+            this.openPopup(layer, e.latlng);
+        }
+    },
+
+    _movePopup: function (e) {
+        this._popup.setLatLng(e.latlng);
+    }
+});
+///////////////////////////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////////////
+/*
+var svg = d3.select("#map").select("svg"),
+    g = svg.append("g");
+
+d3.json("{{ page.data }}").then(function(collection) {
+    collection.objects.forEach(function(d) { d.LatLng = new L.LatLng( d.circle.coordinates[0], d.circle.coordinates[1] ); })
+
+    var feature = g.selectAll("circle")
+        .data(collection.objects)
+        .enter().append("circle")
+        .style("stroke", "black")
+        .style("opacity", .6)
+        .style("fill", "red")
+        .attr("r", 20);
+
+    map.on("viewreset", update);
+    update();
+
+    function update() {
+        feature.attr("transform", function(d) {
+            return "translate("+ map.latLngToLayerPoint(d.LatLng).x + "," + map.latLngToLayerPoint(d.LatLng).y + ")";
+        });
+    }
+});
+*/

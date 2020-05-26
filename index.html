@@ -7,59 +7,75 @@
   <meta name="description" content="">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <link rel="stylesheet" href="css/main.css">
+  <script src="js/jquery-3.4.1.min.js"></script>
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.6.0/dist/leaflet.css" integrity="sha512-xwE/Az9zrjBIphAcBb3F6JVqxf46+CDLwfLMHloNu6KEQCAWi6HcDUbeOfBIptF7tcCzusKFjFw2yuvEpDL9wQ==" crossorigin=""/>
   <script src="https://unpkg.com/leaflet@1.6.0/dist/leaflet.js" integrity="sha512-gZwIG9x3wUXg2hdXF6+rVkLF/0Vi9U8D2Ntg4Ga5I5BZpVkVxlJWbSQtXPSiUTtC0TjtGOmxa1AJPuV0CPthew==" crossorigin=""></script>
+
+  <link rel="stylesheet" href="css/leaflet-svg-popup.css">
+  <script src="js/leaflet-svg-popup.js"></script>
+
   <script src="https://d3js.org/d3.v5.min.js"></script>
 </head>
 
 <body>
-  <div id="mapid"></div>
+  <div style="margin: auto;" id="map"></div>
   <script type="text/javascript">
-    var margin = {top: 0, right: 0, bottom: 0, left: 0},
-            width = window.innerWidth - margin.left - margin.right,
-            height = window.innerHeight - margin.top - margin.bottom,
-            top_layer = d3.select("#visual").append("div")
-                    .attr("id", "map")
-                    .style("position", "relative")
-                    .style("width", width + "px")
-                    .style("height", height + "px");
-
-    var map = L.map('map', { zoomControl: false }).setView([-41.2858, 174.7868], 13),
-  //	var map = L.map('map', { center: [10.0, 5.0], minZoom: 2, zoom: 2 }),
-            map_url = 'https://cartodb-basemaps-{s}.global.ssl.fastly.net/light_all/{z}/{x}/{y}.png',
-            mapLink = '<a href="http://openstreetmap.org">OpenStreetMap</a>';
-
-    new L.Control.Zoom({ position: 'bottomleft' }).addTo(map);
-    L.tileLayer( map_url, {
-      attribution: '&copy; ' + mapLink + ' Contributors',
-      maxZoom: 18,
-    }).addTo(map);
-
-    map._initPathRoot();
-
-    var svg = d3.select("#map").select("svg"),
-            g = svg.append("g");
-
-    d3.json("{{ page.data }}").then(function(collection) {
-      collection.objects.forEach(function(d) { d.LatLng = new L.LatLng( d.circle.coordinates[0], d.circle.coordinates[1] ); })
-
-      var feature = g.selectAll("circle")
-              .data(collection.objects)
-              .enter().append("circle")
-              .style("stroke", "black")
-              .style("opacity", .6)
-              .style("fill", "red")
-              .attr("r", 20);
-
-      map.on("viewreset", update);
-      update();
-
-      function update() {
-        feature.attr("transform", function(d) {
-          return "translate("+ map.latLngToLayerPoint(d.LatLng).x + "," + map.latLngToLayerPoint(d.LatLng).y + ")";
-        });
-      }
+    $(function() {
+      map = initialize_map();
+      set_geojson_features(map);
     });
+
+    function initialize_map() {
+      var margin = {top: 25, right: 25, bottom: 25, left: 25},
+              width = window.innerWidth - margin.left - margin.right,
+              height = window.innerHeight - margin.top - margin.bottom;
+
+      d3.select("#map")
+              .style("position", "relative")
+              .style("width", width + "px")
+              .style("height", height + "px");
+
+      map = L.map('map', { zoomControl: false }).setView([45, -120], 3),
+              map_url = 'https://cartodb-basemaps-{s}.global.ssl.fastly.net/light_all/{z}/{x}/{y}.png',
+              mapLink = '<a href="http://openstreetmap.org">OpenStreetMap</a>';
+
+      new L.Control.Zoom({ position: 'bottomleft' }).addTo(map);
+
+      L.tileLayer( map_url, {
+        attribution: '&copy; ' + mapLink + ' Contributors',
+        maxZoom: 18,
+      }).addTo(map);
+
+      return map
+    }
+
+    function set_geojson_features(map) {
+      $.getJSON("data/us_states.json", function(data) {
+        set_map_features(map, data);
+      });
+    }
+
+    function set_map_features(map, geojsonFeature) {
+      L.geoJSON(geojsonFeature, {
+        onEachFeature: onEachFeature,
+        style: featureStyle,
+      }).addTo(map);
+
+      function onEachFeature(feature, layer) {
+        if (feature.properties && feature.properties.NAME) {
+          layer.bindSVGPopup(setPopup);
+        }
+      }
+      function setPopup(layer){
+        return L.svgPopup().setContent('<svg><text>'+ layer.feature.properties.NAME + '</text></svg>');
+      }
+      function featureStyle(feature) {
+        return {
+          color: "lightcoral",
+          fill: "none"
+        }
+      }
+    }
 
   </script>
 </body>
