@@ -1,0 +1,43 @@
+.line {
+    fill: none;
+    stroke: #ffab00;
+    stroke-width: 3;
+}
+
+.overlay {
+    fill: none;
+    pointer-events: all;
+}
+
+.dot {
+    fill: #ffab00;
+    stroke: #fff;
+}
+
+.focus circle {
+    fill: none;
+    stroke: steelblue;
+}
+
+.tablink {
+    background-color: #555;
+    color: white;
+    float: left;
+    border: none;
+    outline: none;
+    cursor: pointer;
+    padding: 5px 0px;
+    font-size: 17px;
+}
+
+.tablink:hover {
+    background-color: #777;
+}
+
+.tabcontent {
+    border-style: none solid solid solid;
+}
+
+.leaflet-popup-content {
+    min-height: 100px;
+}

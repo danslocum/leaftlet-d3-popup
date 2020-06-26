@@ -1,0 +1,305 @@
+<!doctype html>
+<html class="no-js" lang="">
+
+<head>
+  <title>D3 Popup</title>
+  <meta charset="utf-8">
+  <meta name="description" content="">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#fafafa">
+  <link rel="stylesheet" href="css/normalize.css">
+  <link rel="stylesheet" href="css/main.css">
+  <script src="js/plugins.js"></script>
+  <script src="js/tooltips.js"></script>
+
+  <script src="https://code.jquery.com/jquery-3.4.1.min.js" integrity="sha256-CSXorXvZcTkaix6Yvo6HppcZGetbYMGWSFlBw8HfCJo=" crossorigin="anonymous"></script>
+  <script>window.jQuery || document.write('<script src="js/vendor/jquery-3.4.1.min.js"><\/script>')</script>
+
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.6.0/dist/leaflet.css" integrity="sha512-xwE/Az9zrjBIphAcBb3F6JVqxf46+CDLwfLMHloNu6KEQCAWi6HcDUbeOfBIptF7tcCzusKFjFw2yuvEpDL9wQ==" crossorigin=""/>
+  <script src="https://unpkg.com/leaflet@1.6.0/dist/leaflet.js" integrity="sha512-gZwIG9x3wUXg2hdXF6+rVkLF/0Vi9U8D2Ntg4Ga5I5BZpVkVxlJWbSQtXPSiUTtC0TjtGOmxa1AJPuV0CPthew==" crossorigin=""></script>
+
+  <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0/css/bootstrap.min.css">
+  <script src="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0/js/bootstrap.min.js"></script>
+
+  <script src="https://d3js.org/d3.v4.min.js"></script>
+  <script src="https://d3js.org/d3-queue.v3.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/topojson/1.6.19/topojson.js"></script>
+
+  <style>
+    .feature_boundary {
+      fill-opacity: 0;
+      stroke: ghostwhite;
+      stroke-width: 1;
+      pointer-events: none;
+      z-index: 1.5;
+    }
+    .feature_component {
+      fill-opacity: 0.25;
+      stroke: black;
+      stroke-width: 0.5;
+      pointer-events: auto !important;
+    }
+    .feature_component:hover {
+      fill-opacity: 0.6;
+      fill: yellow;
+    }
+    .feature_component.active {
+      fill: orange;
+    }
+    div.tooltip {
+      position: absolute;
+      top: 2px;
+      right: 2px;
+      text-align: center;
+      /* width: 60px;
+      height: 28px; */
+      padding: 2px;
+      font: 12px sans-serif;
+      background: ghostwhite;
+      border: 1px;
+      border-color: black;
+      border-radius: 8px;
+      pointer-events: auto;
+    }
+    g.layer rect {
+      stroke: black;
+      stroke-width: 0.25;
+    }
+    path.lines {
+      fill: none;
+      stroke: black;
+    }
+    circle.dot {
+      stroke: black;
+      stroke-width: 0.5;
+    }
+    .overlay {
+      fill: none;
+      pointer-events: all;
+    }
+    .lineHoverText {
+      text-shadow:
+              -2px -2px 0 #fff,
+              2px -2px 0 #fff,
+              -2px 2px 0 #fff,
+              2px 2px 0 #fff;
+    }
+    .slice_path {
+      pointer-events: none;
+    }
+  </style>
+</head>
+
+<body>
+  <!--[if IE]>
+    <p class="browserupgrade">You are using an <strong>outdated</strong> browser. Please <a href="https://browsehappy.com/">upgrade your browser</a> to improve your experience and security.</p>
+  <![endif]-->
+  <div class="container">
+    <div class="row">
+      <div style="margin: auto;" id="map"></div>
+    </div>
+  </div>
+  <script type="text/javascript">
+    /* Links:
+      d3 + leaflet - https://bost.ocks.org/mike/leaflet/
+      d3 map canvas - https://bl.ocks.org/mbostock/6264239
+      d3 queue.js - http://bl.ocks.org/mapsam/6090056
+      d3 cloropleth map - https://bl.ocks.org/mbostock/raw/5737662/
+      d3 + leaflet + interactive - https://observablehq.com/@sfu-iat355/intro-to-leaflet-d3-interactivity
+      d3 + leaflet + geojson - https://observablehq.com/@idris-maps/leaflet-et-d3
+      d3 + leaflet + barchart overlay - http://bl.ocks.org/brandonhaydu/bbac735600b1de910243f41d38857c94
+      d3 line chart w/ tooltips - https://bl.ocks.org/LemoNode/a9dc1a454fdc80ff2a738a9990935e9d
+    */
+
+
+    var geojson_boundary = "data/us_states.json",
+        geojson_components = "data/us_counties.json";
+
+    var scatter_colors = {
+      "True": "red",
+      "False": "white",
+    }
+    var std_color = "#007979";
+
+    var margin = {top: 25, right: 25, bottom: 25, left: 25},
+        width = window.innerWidth - margin.left - margin.right,
+        height = window.innerHeight - margin.top - margin.bottom;
+
+    /* set global variables */
+    var svg, g_boundary, g_component ,tooltip, tooltips_tooltip,
+        feature_boundary, feature_components,
+        component_active = false;
+    var transform = d3.geoTransform({ point: projectPoint }),
+        path = d3.geoPath().projection(transform),
+        boundary_selection = "",
+        boundary_codes = {};
+
+    $(function() {
+      set_leaflet_map();
+      d3.queue()
+        .defer(d3.json, geojson_boundary)
+        .defer(d3.json, geojson_components)
+        .await(set_geojson_features);
+    });
+
+    function set_leaflet_map() {
+      var map_div = d3.select("#map")
+              .style("position", "relative")
+              .style("width", width + "px")
+              .style("height", height + "px");
+      tooltip = map_div.append("div").attr("class", "tooltip").style("opacity", 0);
+      tooltips_tooltip = map_div.append("div").attr("class", "tooltips_tooltip").style("opacity", 0);
+
+      map = L.map('map', { zoomControl: false }).setView([45, -120], 3),
+              map_url = 'https://cartodb-basemaps-{s}.global.ssl.fastly.net/light_all/{z}/{x}/{y}.png',
+              map_url = 'http://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
+              mapLink = '';
+
+      new L.Control.Zoom({ position: 'bottomleft' }).addTo(map);
+
+      L.tileLayer( map_url, {
+        attribution: '&copy; ' + mapLink + ' Contributors',
+        maxZoom: 18,
+      }).addTo(map);
+
+      /* Initialize the SVG layer */
+      L.svg({clickable:true}).addTo(map)
+
+      var overlay = d3.select(map.getPanes().overlayPane);
+      svg = overlay.select('svg').attr("pointer-events", "auto");
+      svg.on('dblclick', function(d) {
+        if (!component_active) {
+          var test = g_component.selectAll(".feature_component.active");
+          test.attr('class', 'feature_component')
+          tooltip_inactive();
+        }
+        component_active = false;
+      });
+      g_component = svg.append("g").attr("class", "leaflet-component");
+      g_boundary = svg.append("g").attr("class", "leaflet-boundary");
+    }
+    function set_geojson_features(error, geojson_boundaries, geojson_components) {
+      create_boundary(geojson_boundaries);
+      create_components(geojson_components);
+      map.on("zoomend", reset);
+      reset();
+
+      function create_boundary(geojson_boundaries) {
+        $.each(geojson_boundaries.features, function(i,d) {
+          boundary_codes[d.properties.STATE] = d.properties.NAME;
+        });
+
+        feature_boundary = g_boundary.selectAll("path")
+                .data(geojson_boundaries.features)
+                .enter().append("path")
+                .attr('class', 'feature_boundary');
+        feature_boundary.attr("d", path);
+      }
+      function create_components(geojson_components) {
+        feature_components = g_component.selectAll("path")
+          .data(geojson_components.features)
+          .enter().append("path")
+          .attr('class', 'feature_component')
+          .on("mouseover", function(d){
+            d3.select(this).style("cursor", "pointer");
+          })
+          .on("mouseout", function(d){
+            d3.select(this).style("cursor", "");
+          })
+          .on("click", function(d){
+            if (d3.select(this).attr("class") == "feature_component active") {
+              d3.select(this).attr("class", "feature_component");
+              var test = g_component.selectAll(".feature_component.active");
+              if (test._groups[0].length == 0) { tooltip_inactive(); return; }
+            } else {
+              if (boundary_selection != d.properties.STATE) {
+                var test = g_component.selectAll(".feature_component.active");
+                test.attr('class', 'feature_component')
+                boundary_selection = d.properties.STATE;
+              }
+              d3.select(this).attr("class", "feature_component active");
+            }
+            component_active = true;
+            tooltip_active();
+          });
+        feature_components.attr("d", path);
+      }
+    }
+    function projectPoint(x, y) {
+      var point = map.latLngToLayerPoint(new L.LatLng(y, x));
+      this.stream.point(point.x, point.y);
+    }
+    function reset() {
+      feature_boundary.attr("d", path);
+      feature_components.attr("d", path);
+    }
+    function tooltip_active() {
+      // tooltip .html("Test test test");
+              // .style("left", (d3.event.pageX) + "px")
+              // .style("top", (d3.event.pageY - 28) + "px");
+
+      var selection = boundary_codes[boundary_selection];
+      var options = {
+        "timeseries": {
+          name: "Time Series",
+          // api: "https://visualization.api.maprover.io/graphql",
+          // send_request: {"operationName":null,"variables":{},"query":"{\n  query(state: \"" + selection + "\", start: \"2020-01-01\", end: \"2021-05-25\") {\n    county\n    state\n    date\n    cases\n    deaths\n  }\n}\n"},
+          csv: "/data/us_counties_significant_events.csv",
+          x_column: "date",
+          y_column: "cases",
+          group_column: "county",
+          filter_column: "state",
+          filter_value: selection,
+          type: "stacked_bar",
+          width: 500,
+          height: 250,
+        },
+        "linechart": {
+          name: "New Cases",
+          csv: "/data/us_counties_significant_events.csv",
+          x_column: "date",
+          y_column: "new_cases",
+          group_column: "county",
+          filter_column: "state",
+          color_column: "new_cases_significance",
+          filter_value: selection,
+          type: "line",
+          width: 500,
+          height: 250,
+        },
+        "areachart": {
+          name: "New Cases Trendline",
+          csv: "/data/us_counties_significant_events.csv",
+          x_column: "date",
+          y_column: "rolling_new_cases_mean",
+          group_column: "county",
+          filter_column: "state",
+          color_column: "new_cases_significance",
+          outlier_column: "new_cases",
+          std_column: "rolling_new_cases_std",
+          filter_value: selection,
+          type: "area",
+          width: 500,
+          height: 250,
+        }
+      }
+
+      $('div.tooltip').empty();
+
+      get_data(tooltip, options);
+
+      tooltip .transition()
+              .duration(500)
+              .style("opacity", .9);
+    }
+    function tooltip_inactive() {
+      $('div.tooltip').empty();
+
+      tooltip.transition()
+              .duration(500)
+              .style("opacity", 0);
+    }
+  </script>
+</body>
+
+</html>
