@@ -119,7 +119,7 @@
       "True": "red",
       "False": "white",
     }
-    var std_color = "#007979";
+    var std_color = "green";
 
     var margin = {top: 25, right: 25, bottom: 25, left: 25},
         width = window.innerWidth - margin.left - margin.right,
@@ -240,6 +240,19 @@
 
       var selection = boundary_codes[boundary_selection];
       var options = {
+        "overview": {
+          name: "Overview",
+          csv: "/data/us_counties_significant_events.csv",
+          sig_events: "new_cases_significance",
+          position: "cases",
+          velocity: "new_cases",
+          group_column: "county",
+          filter_column: "state",
+          filter_value: selection,
+          type: create_overview,
+          width: 500,
+          height: 250,
+        },
         "timeseries": {
           name: "Time Series",
           // api: "https://visualization.api.maprover.io/graphql",
@@ -279,6 +292,22 @@
           std_column: "rolling_new_cases_std",
           filter_value: selection,
           type: "area",
+          width: 500,
+          height: 250,
+        },
+        "stdchart": {
+          name: "Standard Deviation Trendline",
+          csv: "/data/us_counties_significant_events.csv",
+          x_column: "date",
+          y_column: "new_cases",
+          mean_column: "rolling_new_cases_mean",
+          std_column: "rolling_new_cases_std",
+          group_column: "county",
+          filter_column: "state",
+          filter_value: selection,
+          color_column: "new_cases_significance",
+          outlier_column: "new_cases",
+          type: "standard_dev",
           width: 500,
           height: 250,
         }
